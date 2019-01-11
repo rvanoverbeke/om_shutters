@@ -1,0 +1,5 @@
+config.json
+*.pyc
+.idea
+history.json
+openmotics.log

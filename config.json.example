@@ -1,0 +1,17 @@
+{
+  "DRY_RUN": true,
+  "DEBUG": true,
+  "location": {
+    "latitude": 50.842468,
+    "longitude": 2.900764
+  }, 
+  "credentials": {
+    "om_host": "your_local_ip_address",
+    "username": "your_local_user_name",
+    "password": "your_local_password"
+  }, 
+  "shutters": {
+    "room_1": (room_1_shutter_up_id, room_1_shutter_down_id),
+    "room_2": (room_2_shutter_up_id, room_2_shutter_down_id),
+  }
+}
