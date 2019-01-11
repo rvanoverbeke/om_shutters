@@ -45,8 +45,8 @@ class OpenMoticsShutter(object):
         self.om_host = credentials.get("om_host")
 
         location = cfg.get("location", {})
-        self.latitude = location.get("latitude")
-        self.longitude = location.get("longitude")
+        self.latitude = int(location.get("latitude", "0"))
+        self.longitude = int(location.get("longitude", "0"))
 
         self.shutters = cfg.get("shutters", {})
 
@@ -88,10 +88,13 @@ class OpenMoticsShutter(object):
         self._log("Triggering blind with output [{}] in room: [{}]".format(output, room))
         local_now = datetime.now()
         if not self._check_history(output, local_now):
-            _log("Blind was already triggered")
+            self._log("Blind was already triggered")
+            return False
+        elif self.dry_run is not False:
+            self._log("DRY RUN; not doing anything")
             return False
         else:
-            self._log("DRY RUN; not doing anything")
+            api.set_output(output, True)
             self._add_history(output, _write_date(local_now))
         return True
 
@@ -113,7 +116,8 @@ class OpenMoticsShutter(object):
 
     def run(self):
         local_now_dt = datetime.now()
-        data = requests.get(URL.format(LAT, LON, local_now_dt.strftime('%Y-%m-%d'))).json()
+        url = SUNRISE_URL.format(self.latitude, self.longitude, local_now_dt.strftime('%Y-%m-%d'))
+        data = requests.get(url).json()
         sunrise = data['results']['sunrise']
         sunset = data['results']['sunset']
         sunrise_dt = self._read_date(sunrise)
