@@ -135,7 +135,7 @@ class OpenMoticsShutter(object):
             self._rise_all_blinds()
         else:
             self._log("Nothing to do")
-            self._log("Finished")
+        self._log("Finished")
 
 
 if __name__ == '__main__':

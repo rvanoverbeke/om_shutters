@@ -1,6 +1,6 @@
 {
-  "DRY_RUN": true,
-  "DEBUG": true,
+  "dry_run": true,
+  "debug": true,
   "location": {
     "latitude": 50.842468,
     "longitude": 2.900764
