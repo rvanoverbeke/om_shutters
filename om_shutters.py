@@ -94,8 +94,8 @@ class OpenMoticsShutter(object):
             self._log("DRY RUN; not doing anything")
             return False
         else:
-            api.set_output(output, True)
-            self._add_history(output, _write_date(local_now))
+            self.api.set_output(output, True)
+            self._add_history(output, self._write_date(local_now))
         return True
 
     def _shut_all_blinds(self):
