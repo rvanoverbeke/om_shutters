@@ -6,6 +6,12 @@ import random
 import traceback
 import time
 
+from requests.packages.urllib3 import exceptions
+
+# Patch requests so no warning is logged anymore
+requests.packages.urllib3.disable_warnings(exceptions.InsecureRequestWarning)
+
+
 class AuthenticationException(Exception):
     """ This Exception is raised when the user credentials are not valid. """
 
@@ -65,8 +71,6 @@ class OpenMoticsApi:
         """ Fetch an url. The url and post data are created based on the action and post_data. """
         url = self.get_url(action)
         post_data = self.get_post_data(post_data)
-        
-        print "Fetching url: %s" % url
         
         r = requests.post(url, params=get_params, data=post_data, verify=self.verify_https)
         if r.status_code == 401:
