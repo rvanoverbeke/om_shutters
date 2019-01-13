@@ -3,6 +3,7 @@ import json
 import requests
 import logging
 import logging.handlers
+import os
 import pytz
 import sys
 import time
@@ -10,10 +11,13 @@ from datetime import datetime, timedelta
 
 from sdk import OpenMoticsApi
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
+
 SUNRISE_URL = "http://api.sunrise-sunset.org/json?lat={0}&lng={1}&date={2}&formatted=0"
-CFG_FILE = "config.json"
-HISTORY_FILE = "history.json"
-LOG_FILE = "openmotics.log"
+CFG_FILE = os.path.join(dir_path, "config.json")
+HISTORY_FILE = os.path.join(dir_path, "history.json")
+LOG_FILE = os.path.join(dir_path, "openmotics.log")
+SLEEP_BETWEEN_SHUTTERS = 3
 
 
 class OpenMoticsShutter(object):
@@ -116,9 +120,9 @@ class OpenMoticsShutter(object):
 
     def _trigger_all_blinds(self, blinds):
         for room, output in blinds:
-            self._trigger_blinds(room, output)
-            self.logger.debug("Sleeping for 3 seconds...\n")
-            time.sleep(3)
+            if self._trigger_blinds(room, output):
+                self.logger.debug("Blind was triggered, sleeping for {} seconds...\n".format(SLEEP_BETWEEN_SHUTTERS))
+                time.sleep(SLEEP_BETWEEN_SHUTTERS)
 
     def _parse_hour_minute(self, local_now_dt, value):
         if not value:
