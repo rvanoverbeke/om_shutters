@@ -11,7 +11,7 @@
     "password": "your_local_password"
   }, 
   "shutters": {
-    "room_1": (room_1_shutter_up_id, room_1_shutter_down_id),
-    "room_2": (room_2_shutter_up_id, room_2_shutter_down_id),
+    "room_1": [room_1_shutter_up_id, room_1_shutter_down_id, auto_up, auto_down, earliest_up, latest_down],
+    "example_room_2": [15, 16, true, true, "07:30", "20:00"]
   }
 }

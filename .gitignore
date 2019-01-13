@@ -3,3 +3,4 @@ config.json
 .idea
 history.json
 openmotics.log
+venv
