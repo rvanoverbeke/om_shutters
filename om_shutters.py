@@ -190,7 +190,7 @@ class OpenMoticsShutter(object):
         url = SUNRISE_URL.format(self.latitude, self.longitude, local_now_dt.strftime('%Y-%m-%d'))
         data = requests.get(url).json()
 
-        sunrise = data['results']['sunrise']
+        sunrise = data['results']['civil_twilight_begin']
         sunset = data['results']['sunset']
         sunrise_dt = self._read_date(sunrise)
         sunset_dt = self._read_date(sunset)
