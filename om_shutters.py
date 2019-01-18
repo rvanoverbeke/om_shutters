@@ -140,9 +140,10 @@ class OpenMoticsShutter(object):
             self.logger.exception("Unable to parse {} as \"hour:minute\"".format(value))
             return None
 
-    def _find_blinds_to_rise(self, sunrise_dt, local_now_dt):
+    def _find_blinds_to_rise(self, sunrise_dt, local_now_dt, blinds_to_shut):
         """ Return a list of blinds to automatically rise. Returns an empty list of nothing needs to be done."""
         blinds_to_rise = []
+        rooms_shut = [room for (room, _) in blinds_to_shut]
 
         is_sunrise = sunrise_dt <= local_now_dt
         if not is_sunrise:
@@ -150,6 +151,9 @@ class OpenMoticsShutter(object):
             return blinds_to_rise
 
         for room, (up, down, auto_up, auto_down, earliest_up, latest_down) in self.shutters.iteritems():
+            if room in rooms_shut:
+                self.logger.debug("Shutter in room [{}] was just shut, not rising.".format(room))
+                continue
             self.logger.debug("Checking if shutter in room [{}] needs to be raised".format(room))
             if not auto_up:
                 self.logger.debug("[{}] - auto-up is disabled. Skipping...".format(room))
@@ -199,14 +203,6 @@ class OpenMoticsShutter(object):
         self.logger.info("Sunrise: {}".format(sunrise_dt))
         self.logger.info("Sunset {}".format(sunset_dt))
 
-        blinds_to_rise = self._find_blinds_to_rise(sunrise_dt, local_now_dt)
-        if blinds_to_rise:
-            self.logger.debug("Blinds to rise: {}".format(blinds_to_rise))
-            self.logger.info("Rising blinds: {}".format([blind[0] for blind in blinds_to_rise]))
-            self._trigger_all_blinds(blinds_to_rise)
-        else:
-            self.logger.debug("Nothing to rise")
-
         blinds_to_shut = self._find_blinds_to_shut(sunset_dt, local_now_dt)
         if blinds_to_shut:
             self.logger.debug("Blinds to shut: {}".format(blinds_to_shut))
@@ -214,6 +210,15 @@ class OpenMoticsShutter(object):
             self._trigger_all_blinds(blinds_to_shut)
         else:
             self.logger.debug("Nothing to shut")
+
+
+        blinds_to_rise = self._find_blinds_to_rise(sunrise_dt, local_now_dt, blinds_to_shut)
+        if blinds_to_rise:
+            self.logger.debug("Blinds to rise: {}".format(blinds_to_rise))
+            self.logger.info("Rising blinds: {}".format([blind[0] for blind in blinds_to_rise]))
+            self._trigger_all_blinds(blinds_to_rise)
+        else:
+            self.logger.debug("Nothing to rise")
 
         if not blinds_to_rise and not blinds_to_shut:
             self.logger.info("Nothing to do")
