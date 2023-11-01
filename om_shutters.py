@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!venv/bin/python
 import json
 import requests
 import logging
@@ -93,7 +93,7 @@ class OpenMoticsShutter(object):
             last_set = history.get(str(output), None)
             self.logger.debug("Output [{}] was set on: {}".format(output, last_set))
             last_set = self._read_date(last_set)
-        return last_set is None or date > last_set + timedelta(hours=20)
+        return last_set is None or date > last_set + timedelta(hours=15)
 
     def _add_history(self, output, date):
         with open(HISTORY_FILE, 'r') as content:
