@@ -8,6 +8,7 @@ import pytz
 import sys
 import time
 from datetime import datetime, timedelta
+from suntime import Sun, SunTimeException
 
 from sdk import OpenMoticsApi
 
@@ -17,6 +18,7 @@ SUNRISE_URL = "http://api.sunrise-sunset.org/json?lat={0}&lng={1}&date={2}&forma
 CFG_FILE = os.path.join(dir_path, "config.json")
 HISTORY_FILE = os.path.join(dir_path, "history.json")
 LOG_FILE = os.path.join(dir_path, "openmotics.log")
+HTML_FILE = "/var/www/html/index.html"
 SLEEP_BETWEEN_SHUTTERS = 3
 
 
@@ -58,6 +60,11 @@ class OpenMoticsShutter(object):
         self.longitude = int(location.get("longitude", "0"))
 
         self.shutters = cfg.get("shutters", {})
+        christmas = cfg.get("christmas", {})
+        self.christmas_start = christmas.get("start")
+        self.christmas_end = christmas.get("end")
+        self.christmas_down = christmas.get("down")
+        self.christmas_shutters = christmas.get("shutters", [])
 
     def _setup_logging(self):
         # Setup logging
@@ -124,6 +131,29 @@ class OpenMoticsShutter(object):
                 self.logger.debug("Blind was triggered, sleeping for {} seconds...\n".format(SLEEP_BETWEEN_SHUTTERS))
                 time.sleep(SLEEP_BETWEEN_SHUTTERS)
 
+    def _parse_day_month(self, local_now_dt, value):
+        if not value:
+            return None
+        try:
+            tz = pytz.timezone("Europe/Brussels")
+
+            day, month = [int(val) for val in value.split('/', 1)]
+            dt = datetime(local_now_dt.year, month, day, 0, 0)
+            dt_localized = tz.localize(dt)
+            dt_utc = dt_localized.astimezone(pytz.utc)
+            self.logger.debug("{} was parsed as {}".format(value, dt_utc))
+            return dt_utc.replace()
+        except ValueError:
+            self.logger.exception("Unable to parse {} as \"day/month\"".format(value))
+            return None
+
+    def _is_christmas(self, local_now_dt):
+        start = self._parse_day_month(local_now_dt, self.christmas_start)
+        end = self._parse_day_month(local_now_dt, self.christmas_end)
+        if start and end and start <= local_now_dt and end > local_now_dt:
+            return True
+        return False
+
     def _parse_hour_minute(self, local_now_dt, value):
         if not value:
             return None
@@ -135,7 +165,7 @@ class OpenMoticsShutter(object):
             dt_localized = tz.localize(dt)
             dt_utc = dt_localized.astimezone(pytz.utc)
             self.logger.debug("{} was parsed as {}".format(value, dt_utc))
-            return dt_utc.replace(tzinfo=None)
+            return dt_utc.replace()
         except ValueError:
             self.logger.exception("Unable to parse {} as \"hour:minute\"".format(value))
             return None
@@ -150,7 +180,7 @@ class OpenMoticsShutter(object):
             self.logger.debug("Sun hasn't risen yet. Skipping...")
             return blinds_to_rise
 
-        for room, (up, down, auto_up, auto_down, earliest_up, latest_down) in self.shutters.iteritems():
+        for room, (up, down, auto_up, auto_down, earliest_up, latest_down) in self.shutters.items():
             if room in rooms_shut:
                 self.logger.debug("Shutter in room [{}] was just shut, not rising.".format(room))
                 continue
@@ -171,37 +201,55 @@ class OpenMoticsShutter(object):
         blinds_to_shut = []
 
         is_sunset = sunset_dt <= local_now_dt
-
-        for room, (up, down, auto_up, auto_down, earliest_up, latest_down) in self.shutters.iteritems():
+        if not is_sunset:
+            self.logger.debug("Sun hasn't set yet. Skipping...")
+            return blinds_to_shut
+ 
+        for room, (up, down, auto_up, auto_down, earliest_up, latest_down) in self.shutters.items():
             self.logger.debug("Checking if shutter in room [{}] needs to be shut".format(room))
             if not auto_down:
                 self.logger.debug("[{}] - auto-down is disabled. Skipping...".format(room))
                 continue
             latest_down_dt = self._parse_hour_minute(local_now_dt, latest_down)
+            earliest_down_dt = None
+            if self._is_christmas(local_now_dt) and room in self.christmas_shutters:
+                earliest_down_dt = self._parse_hour_minute(local_now_dt, self.christmas_down)
+            if earliest_down_dt is not None and earliest_down_dt > local_now_dt:
+                self.logger.info("[{}] - Should not be shut yet before {}, it's Christmas!".format(room, earliest_down_dt))
+                continue
             if latest_down_dt is not None and latest_down_dt < local_now_dt:
                 self.logger.info("[{}] - Should be shut on {}.".format(room, latest_down_dt))
                 blinds_to_shut.append((room, down))
-                continue
-            if not is_sunset:
-                self.logger.debug("Sun hasn't set yet. Skipping...")
                 continue
             self.logger.info("[{}] - Should be shut".format(room))
             blinds_to_shut.append((room, down))
         return blinds_to_shut
 
     def run(self):
-        local_now_dt = datetime.now()
-        url = SUNRISE_URL.format(self.latitude, self.longitude, local_now_dt.strftime('%Y-%m-%d'))
-        data = requests.get(url).json()
+        html_out = []
 
-        sunrise = data['results']['civil_twilight_begin']
-        sunset = data['results']['sunset']
-        sunrise_dt = self._read_date(sunrise)
-        sunset_dt = self._read_date(sunset)
+        local_now_dt = datetime.now(pytz.utc)
+        #url = SUNRISE_URL.format(self.latitude, self.longitude, local_now_dt.strftime('%Y-%m-%d'))
+        #data = requests.get(url).json()
+
+        #sunrise = data['results']['civil_twilight_begin']
+        #sunset = data['results']['sunset']
+        #sunrise_dt = self._read_date(sunrise)
+        #sunset_dt = self._read_date(sunset)
+
+        sun = Sun(self.latitude, self.longitude)
+
+        # Get today's sunrise and sunset in UTC
+        sunrise_dt = sun.get_sunrise_time()
+        sunset_dt = sun.get_sunset_time()
 
         self.logger.info("Local time: {}".format(local_now_dt))
         self.logger.info("Sunrise: {}".format(sunrise_dt))
         self.logger.info("Sunset {}".format(sunset_dt))
+
+        html_out.append("Local time: {}".format(local_now_dt))
+        html_out.append("Sunrise: {}".format(sunrise_dt))
+        html_out.append("Sunset {}".format(sunset_dt))
 
         blinds_to_shut = self._find_blinds_to_shut(sunset_dt, local_now_dt)
         if blinds_to_shut:
@@ -223,6 +271,10 @@ class OpenMoticsShutter(object):
         if not blinds_to_rise and not blinds_to_shut:
             self.logger.info("Nothing to do")
         self.logger.info("Finished")
+
+        with open(HTML_FILE, 'w') as fh:
+            for line in html_out:
+                fh.write("<h2>{}</h2>\n".format(line))
 
 
 if __name__ == '__main__':
