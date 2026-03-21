@@ -1,6 +1,5 @@
 #!venv/bin/python
 import json
-import requests
 import logging
 import logging.handlers
 import os
@@ -204,7 +203,7 @@ class OpenMoticsShutter(object):
         if not is_sunset:
             self.logger.debug("Sun hasn't set yet. Skipping...")
             return blinds_to_shut
- 
+
         for room, (up, down, auto_up, auto_down, earliest_up, latest_down) in self.shutters.items():
             self.logger.debug("Checking if shutter in room [{}] needs to be shut".format(room))
             if not auto_down:
@@ -229,19 +228,21 @@ class OpenMoticsShutter(object):
         html_out = []
 
         local_now_dt = datetime.now(pytz.utc)
-        #url = SUNRISE_URL.format(self.latitude, self.longitude, local_now_dt.strftime('%Y-%m-%d'))
-        #data = requests.get(url).json()
-
-        #sunrise = data['results']['civil_twilight_begin']
-        #sunset = data['results']['sunset']
-        #sunrise_dt = self._read_date(sunrise)
-        #sunset_dt = self._read_date(sunset)
 
         sun = Sun(self.latitude, self.longitude)
 
         # Get today's sunrise and sunset in UTC
         sunrise_dt = sun.get_sunrise_time()
         sunset_dt = sun.get_sunset_time()
+
+        # Make sure sunset/sunrise are set to current day
+        current_day = local_now_dt.day
+        if sunset_dt.day != current_day:
+            offset = current_day - sunset_dt.day
+            sunset_dt += timedelta(days=offset)
+        if sunrise_dt.day != current_day:
+            offset = current_day - sunrise_dt.day
+            sunrise_dt += timedelta(days=offset)
 
         self.logger.info("Local time: {}".format(local_now_dt))
         self.logger.info("Sunrise: {}".format(sunrise_dt))
