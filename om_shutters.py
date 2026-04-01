@@ -236,13 +236,15 @@ class OpenMoticsShutter(object):
         sunset_dt = sun.get_sunset_time()
 
         # Make sure sunset/sunrise are set to current day
-        current_day = local_now_dt.day
-        if sunset_dt.day != current_day:
-            offset = current_day - sunset_dt.day
-            sunset_dt += timedelta(days=offset)
-        if sunrise_dt.day != current_day:
-            offset = current_day - sunrise_dt.day
-            sunrise_dt += timedelta(days=offset)
+        current_date = datetime(local_now_dt.year, local_now_dt.month, local_now_dt.day)
+        sunset_date = datetime(sunset_dt.year, sunset_dt.month, sunset_dt.day)
+        sunrise_date = datetime(sunrise_dt.year, sunrise_dt.month, sunrise_dt.day)
+        if current_date != sunset_date:
+            offset = current_date - sunset_date
+            sunset_dt += offset
+        if current_date != sunrise_date:
+            offset = current_date - sunrise_date
+            sunrise_date += offset
 
         self.logger.info("Local time: {}".format(local_now_dt))
         self.logger.info("Sunrise: {}".format(sunrise_dt))
